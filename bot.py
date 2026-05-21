@@ -12,7 +12,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or "AIzaSyDLbCpgUB1Tz68VEnobglQ3h_R
 bot = telebot.TeleBot(TOKEN)
 user_queries = defaultdict(int)
 
-# Database
+# ====================== DATABASE ======================
 def init_db():
     conn = sqlite3.connect('moneybot.db')
     c = conn.cursor()
@@ -37,7 +37,23 @@ def get_user(user_id):
     conn.close()
     return user
 
-# AI
+def set_premium(user_id):
+    until = (datetime.now() + timedelta(days=30)).isoformat()
+    conn = sqlite3.connect('moneybot.db')
+    c = conn.cursor()
+    c.execute("UPDATE users SET is_premium=1, premium_until=? WHERE user_id=?", (until, user_id))
+    conn.commit()
+    conn.close()
+
+# ====================== PRODUCT FILES (Change these IDs) ======================
+PRODUCT_FILES = {
+    "affiliate": {"name": "Affiliate_Mastery_Guide.pdf", "file_id": "YOUR_FILE_ID_HERE"},
+    "dropship": {"name": "Dropshipping_Kit_Saudi.pdf", "file_id": "YOUR_FILE_ID_HERE"},
+    "signals": {"name": "Crypto_Signals_Pack.pdf", "file_id": "YOUR_FILE_ID_HERE"},
+    "notion": {"name": "Notion_Business_Planner.pdf", "file_id": "YOUR_FILE_ID_HERE"}
+}
+
+# ====================== AI ======================
 def ask_gemini(prompt):
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
@@ -45,7 +61,7 @@ def ask_gemini(prompt):
         resp = requests.post(url, json=data, timeout=20).json()
         return resp['candidates'][0]['content']['parts'][0]['text']
     except:
-        return "💡 Tell me your skills or interests and I'll give you practical money-making ideas in Saudi Arabia."
+        return "💡 Tell me your skills or capital and I'll give you practical ideas for Saudi Arabia."
 
 def main_menu():
     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -58,58 +74,81 @@ def main_menu():
 
 def shop_menu():
     markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(types.InlineKeyboardButton("📘 Affiliate Mastery - 150 Stars", callback_data="buy_affiliate"))
-    markup.add(types.InlineKeyboardButton("🚀 Dropshipping Kit - 250 Stars", callback_data="buy_dropship"))
-    markup.add(types.InlineKeyboardButton("📊 Crypto Signals - 300 Stars", callback_data="buy_signals"))
-    markup.add(types.InlineKeyboardButton("📋 Notion Money System - 200 Stars", callback_data="buy_notion"))
+    markup.add(types.InlineKeyboardButton("📘 Affiliate Mastery Guide - 150 Stars", callback_data="buy_affiliate"))
+    markup.add(types.InlineKeyboardButton("🚀 Dropshipping Kit (Saudi) - 250 Stars", callback_data="buy_dropship"))
+    markup.add(types.InlineKeyboardButton("📊 Crypto Signals Pack - 300 Stars", callback_data="buy_signals"))
+    markup.add(types.InlineKeyboardButton("📋 Notion Business Planner - 200 Stars", callback_data="buy_notion"))
     return markup
 
+# ====================== START ======================
 @bot.message_handler(commands=['start'])
 def start(message):
     get_user(message.from_user.id)
     bot.send_message(message.chat.id, 
-                     "👋 Welcome to **MoneyMachine Bot** 🔥\n\n🇸🇦 Make Money in Saudi Arabia",
+                     "👋 Welcome to **MoneyMachine Bot** 🔥\n\n"
+                     "🇸🇦 Your Personal Money Making Machine in Saudi Arabia",
                      reply_markup=main_menu())
 
+# ====================== CALLBACKS ======================
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     bot.answer_callback_query(call.id)
     uid = call.from_user.id
 
     if call.data == "money":
-        bot.send_message(uid, """💰 **Make Money Options**
+        bot.send_message(uid, """💰 **Best Money Making Methods in Saudi Arabia**
 
-1. Affiliate Marketing (Best for beginners)
-2. Digital Products (Highest profit)
-3. Dropshipping
-4. Telegram Bots & Services
+1. Affiliate Marketing
+2. Digital Products
+3. Dropshipping with local suppliers
+4. Telegram Channels & Services
 
-Reply with a number (1-4) or tell me your skills!""")
+Reply with number or tell me your skills!""")
 
     elif call.data == "shop":
-        bot.send_message(uid, "🛒 **Digital Shop** - Choose product:", reply_markup=shop_menu())
+        bot.send_message(uid, "🛒 **Digital Shop** - Instant Delivery", reply_markup=shop_menu())
 
     elif call.data == "ai":
         bot.send_message(uid, "🧠 Ask me anything about making money!")
 
     elif call.data == "premium":
-        bot.send_invoice(uid, "Premium Monthly", "Unlimited AI + Exclusive Content", 
+        bot.send_invoice(uid, "Premium Monthly", "Unlimited AI + Daily Tips + Exclusive Guides", 
                         "premium_monthly", "", "XTR", [types.LabeledPrice("Premium 30 Days", 500)])
 
     elif call.data == "refer":
         link = f"https://t.me/kkmachinebot?start=ref{uid}"
-        bot.send_message(uid, f"🔗 **Your Referral Link**\n\n`{link}`\n\nEvery 3 referrals = Free Month!", parse_mode='Markdown')
+        bot.send_message(uid, f"🔗 **Your Referral Link**\n\n`{link}`", parse_mode='Markdown')
 
     elif call.data.startswith("buy_"):
-        bot.send_message(uid, "✅ Payment system active! Complete payment to receive product.")
+        product = call.data.replace("buy_", "")
+        bot.send_message(uid, f"✅ Processing payment for **{product}**...")
 
+# ====================== PAYMENTS + AUTO FILE DELIVERY ======================
 @bot.pre_checkout_query_handler(func=lambda q: True)
 def checkout(q):
     bot.answer_pre_checkout_query(q.id, ok=True)
 
 @bot.message_handler(content_types=['successful_payment'])
 def successful_payment(message):
-    bot.send_message(message.chat.id, "🎉 **Premium Activated Successfully!**")
+    payload = message.successful_payment.invoice_payload
+    uid = message.from_user.id
+
+    if "premium" in payload:
+        set_premium(uid)
+        bot.send_message(uid, "🎉 **Premium Activated!** Unlimited AI unlocked!")
+    else:
+        product = payload.replace("buy_", "")
+        bot.send_message(uid, f"✅ Payment Successful!\n📤 Sending your file...")
+
+        if product in PRODUCT_FILES:
+            file_info = PRODUCT_FILES[product]
+            try:
+                with open(file_info["name"], "rb") as f:   # If you upload files to same folder
+                    bot.send_document(uid, f, caption=f"Here is your **{file_info['name']}** ✅")
+            except:
+                bot.send_message(uid, f"📥 **Your File:**\n{file_info.get('link', 'File delivered!')}")
+        else:
+            bot.send_message(uid, "✅ Product delivered!")
 
 @bot.message_handler(func=lambda message: True)
 def chat(message):
@@ -120,5 +159,5 @@ def chat(message):
     else:
         bot.reply_to(message, "💎 Free limit reached. Upgrade to Premium!")
 
-print("🚀 MoneyMachine Bot v7.2 Running!")
+print("🚀 MoneyMachine Bot v9.3 with Auto File Delivery Running!")
 bot.infinity_polling()
