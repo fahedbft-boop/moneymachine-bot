@@ -51,27 +51,34 @@ def set_premium(user_id, days=30):
 # AI Function
 def ask_gemini(prompt):
     try:
-        full_prompt = f"""You are a practical money-making expert in Saudi Arabia. Give realistic step-by-step advice.
-User: {prompt}"""
+        full_prompt = f"""You are a practical money-making expert in Saudi Arabia. 
+Give realistic, step-by-step advice suitable for Saudi market.
+
+User question: {prompt}"""
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={GEMINI_API_KEY}"
         data = {"contents": [{"parts": [{"text": full_prompt}]}]}
         resp = requests.post(url, json=data, timeout=15).json()
         return resp['candidates'][0]['content']['parts'][0]['text']
     except:
-        return "💡 Tell me your skills and I will give you good money making ideas."
+        return "💡 Ask me specific questions like:\n• How to earn 500 SAR per hour in Riyadh\n• Best side hustle in Saudi Arabia"
 
-# Start Command
+# ====================== START ======================
 @bot.message_handler(commands=['start'])
 def start(message):
     get_user(message.from_user.id)
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(types.InlineKeyboardButton("💰 Make Money", callback_data="money"))
+    markup.add(types.InlineKeyboardButton("📈 BTC Price", callback_data="btc"))
     markup.add(types.InlineKeyboardButton("🛒 Digital Shop", callback_data="shop"))
     markup.add(types.InlineKeyboardButton("🧠 AI Advisor", callback_data="ai"))
     markup.add(types.InlineKeyboardButton("⭐ Premium", callback_data="premium"))
     markup.add(types.InlineKeyboardButton("🔗 Invite & Earn", callback_data="refer"))
 
-    bot.send_message(message.chat.id, "👋 Welcome to **MoneyMachine Bot** 🔥\n\n🇸🇦 Make Money in Saudi Arabia", reply_markup=markup)
+    bot.send_message(message.chat.id, 
+                     "👋 Welcome to **MoneyMachine Bot** 🔥\n\n"
+                     "🇸🇦 Real Ways to Make Money in Saudi Arabia\n"
+                     "Choose below 👇", 
+                     reply_markup=markup)
 
 @bot.message_handler(commands=['myplan'])
 def myplan(message):
@@ -81,23 +88,35 @@ def myplan(message):
     else:
         bot.reply_to(message, "🆓 **Free Plan** (5 queries/day)")
 
-# Callbacks
+# ====================== FIXED CALLBACKS ======================
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     bot.answer_callback_query(call.id)
     uid = call.from_user.id
 
-    if call.data in ["money", "ai"]:
-        bot.send_message(uid, "🧠 Ask me anything about making money!")
+    if call.data == "money":
+        bot.send_message(uid, "💰 **Make Money Ideas**\n\nJust type your question!\n\nExamples:\n• How to earn 500 SAR per hour\n• Best side hustle in Riyadh\n• How to start dropshipping in Saudi")
+
+    elif call.data == "btc":
+        price = get_btc_price()
+        bot.send_message(uid, f"📈 **Bitcoin Price**\n\n${price:,} USD")
+
     elif call.data == "shop":
         bot.send_message(uid, "🛒 **Digital Shop**", reply_markup=get_shop_menu())
+
+    elif call.data == "ai":
+        bot.send_message(uid, "🧠 Ask me anything about making money!")
+
     elif call.data == "premium":
-        bot.send_invoice(uid, "Premium Monthly", "Unlimited AI + Exclusive Content", "premium_monthly", "", "XTR", [types.LabeledPrice("Premium 30 Days", 500)])
+        bot.send_invoice(uid, "Premium Monthly", "Unlimited AI + Exclusive Strategies", 
+                        "premium_monthly", "", "XTR", [types.LabeledPrice("Premium 30 Days", 500)])
+
     elif call.data == "refer":
         link = f"https://t.me/{bot.get_me().username}?start=ref{uid}"
-        bot.send_message(uid, f"🔗 **Your Referral Link**\n\n`{link}`\n\nEvery 3 referrals = Free Premium!", parse_mode='Markdown')
+        bot.send_message(uid, f"🔗 **Your Referral Link**\n\n`{link}`\n\nEvery 3 referrals = 1 Free Premium Month!", parse_mode='Markdown')
+
     elif call.data.startswith("buy_"):
-        bot.send_message(uid, "✅ Payment system ready!")
+        bot.send_message(uid, "✅ Payment option selected!")
 
 def get_shop_menu():
     markup = types.InlineKeyboardMarkup()
@@ -105,7 +124,14 @@ def get_shop_menu():
     markup.add(types.InlineKeyboardButton("🚀 Dropshipping Kit - 250 Stars", callback_data="buy_dropship"))
     return markup
 
-# Payment
+def get_btc_price():
+    try:
+        r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=10)
+        return r.json()['bitcoin']['usd']
+    except:
+        return 77000
+
+# Payments
 @bot.pre_checkout_query_handler(func=lambda q: True)
 def checkout(q):
     bot.answer_pre_checkout_query(q.id, ok=True)
@@ -113,14 +139,15 @@ def checkout(q):
 @bot.message_handler(content_types=['successful_payment'])
 def successful_payment(message):
     if "premium" in message.successful_payment.invoice_payload:
-        set_premium(message.from_user.id)
-        bot.send_message(message.chat.id, "🎉 Premium Activated! Unlimited AI unlocked.")
+        set_premium(message.from_user.id, 30)
+        bot.send_message(message.chat.id, "🎉 **Premium Activated Successfully!**\nUnlimited AI unlocked 🔥")
 
 # Main Chat
 @bot.message_handler(func=lambda message: True)
 def chat(message):
     uid = message.from_user.id
     user = get_user(uid)
+    
     if user and user[1] == 1:
         bot.send_message(uid, "🤔 Thinking...")
         bot.reply_to(message, ask_gemini(message.text))
@@ -130,7 +157,7 @@ def chat(message):
             bot.send_message(uid, "🤔 Thinking...")
             bot.reply_to(message, ask_gemini(message.text))
         else:
-            bot.reply_to(message, "💎 Free limit reached. Upgrade to Premium!")
+            bot.reply_to(message, "💎 Free limit reached.\nUpgrade to Premium!")
 
 print("🚀 MoneyMachine Bot Running...")
 bot.infinity_polling()
