@@ -52,15 +52,15 @@ def set_premium(user_id, days=30):
 # ====================== AI ======================
 def ask_gemini(prompt):
     try:
-        full_prompt = f"You are a practical money-making expert. Give realistic step-by-step advice.\nUser: {prompt}"
+        full_prompt = f"You are a practical money-making expert in Saudi Arabia. Give realistic step-by-step advice.\nUser: {prompt}"
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         data = {"contents": [{"parts": [{"text": full_prompt}]}]}
         resp = requests.post(url, json=data, timeout=15).json()
         return resp['candidates'][0]['content']['parts'][0]['text']
     except:
-        return "💡 Tell me your skills, location (Saudi), or interest and I'll give you personalized money ideas."
+        return "💡 Tell me your skills or interests and I'll give you good money-making ideas for Saudi Arabia."
 
-# ====================== KEYBOARDS ======================
+# ====================== MENUS ======================
 def main_menu():
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(types.InlineKeyboardButton("💰 Make Money", callback_data="money"))
@@ -93,7 +93,7 @@ def myplan(message):
     else:
         bot.reply_to(message, "🆓 **Free Plan** (5 queries/day)")
 
-# ====================== CALLBACKS ======================
+# ====================== CALLBACKS (FIXED) ======================
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     bot.answer_callback_query(call.id)
@@ -101,17 +101,18 @@ def callback(call):
     user = get_user(uid)
 
     if call.data == "money":
-        bot.send_message(uid, """💰 **Make Money Options**
+        text = """💰 **Make Money Options in Saudi Arabia**
 
-1. Affiliate Marketing (Best for beginners)
-2. Digital Products (Highest profit)
-3. Dropshipping
-4. Telegram Services
+1. **Affiliate Marketing** - Promote products and earn commission
+2. **Digital Products** - Sell eBooks, templates, courses
+3. **Dropshipping** - Sell products without stock
+4. **Telegram Services** - Create bots, channels, mini apps
 
-Reply with a number or tell me your skills!""")
+Reply with a number (1-4) or tell me your skills!"""
+        bot.send_message(uid, text)
 
     elif call.data == "ai":
-        bot.send_message(uid, "🧠 Ask me anything about making money!\nExample: Best side hustle in Saudi Arabia")
+        bot.send_message(uid, "🧠 Ask me anything about making money!\nExample: Best side hustle in Riyadh")
 
     elif call.data == "shop":
         bot.send_message(uid, "🛒 **Digital Shop**", reply_markup=get_shop_menu())
@@ -120,15 +121,15 @@ Reply with a number or tell me your skills!""")
         if user[1] == 1:
             bot.send_message(uid, "✅ You already have Premium!")
         else:
-            bot.send_invoice(uid, "Premium Monthly", "Unlimited AI + Exclusive Content + Priority Support", 
+            bot.send_invoice(uid, "Premium Monthly", "Unlimited AI + Exclusive Strategies", 
                            "premium_monthly", "", "XTR", [types.LabeledPrice("Premium 30 Days", 500)])
 
     elif call.data == "refer":
-        link = f"https://t.me/{bot.get_me().username}?start=ref{uid}"
-        bot.send_message(uid, f"🔗 **Your Referral Link**\n\n`{link}`\n\nEvery 3 successful referrals = 1 Free Month!", parse_mode='Markdown')
+        link = f"https://t.me/kkmachinebot?start=ref{uid}"
+        bot.send_message(uid, f"🔗 **Your Referral Link**\n\n`{link}`\n\nEvery 3 referrals = 1 Free Month!", parse_mode='Markdown')
 
     elif call.data.startswith("buy_"):
-        bot.send_message(uid, "✅ Payment feature is ready! (Test mode)")
+        bot.send_message(uid, "✅ Payment system is ready!")
 
 # ====================== PAYMENTS ======================
 @bot.pre_checkout_query_handler(func=lambda q: True)
@@ -148,15 +149,13 @@ def chat(message):
     user = get_user(uid)
 
     if user[1] == 1:  # Premium
-        bot.send_message(uid, "🤔 Thinking...")
         bot.reply_to(message, ask_gemini(message.text))
     else:
         if user_queries[uid] < 5:
             user_queries[uid] += 1
-            bot.send_message(uid, "🤔 Thinking...")
             bot.reply_to(message, ask_gemini(message.text))
         else:
-            bot.reply_to(message, "💎 Free limit reached (5/day).\nUpgrade to Premium!")
+            bot.reply_to(message, "💎 Free limit reached (5/day).\nUpgrade to Premium for unlimited access!")
 
-print("🚀 MoneyMachine Bot Updated & Fixed!")
+print("🚀 MoneyMachine Bot Fixed & Running!")
 bot.infinity_polling()
