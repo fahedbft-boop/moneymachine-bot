@@ -14,11 +14,11 @@ bot = telebot.TeleBot(TOKEN)
 def ask_gemini(prompt):
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={GEMINI_API_KEY}"
-        data = {"contents": [{"parts": [{"text": prompt}]]}
+        data = {"contents": [{"parts": [{"text": prompt}]}]}
         resp = requests.post(url, json=data, timeout=15).json()
         return resp['candidates'][0]['content']['parts'][0]['text']
     except:
-        return "💡 Ask me anything about making money in Saudi Arabia!"
+        return "💡 I'm ready to help! Ask me how to make money in Saudi Arabia."
 
 @bot.message_handler(commands=['start'])
 def start(message):
