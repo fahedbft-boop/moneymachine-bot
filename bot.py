@@ -1,19 +1,18 @@
 import telebot
+import requests
+import os
 from telebot import types
 import sqlite3
 from datetime import datetime, timedelta
-import requests
-import os
 from collections import defaultdict
 
-# ====================== CONFIG ======================
 TOKEN = os.getenv("TOKEN") or "8962392711:AAGoYjSYq4iuMupJaruE13YnHMrsJ3lVh-E"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or "AIzaSyDLbCpgUB1Tz68VEnobglQ3h_RbCUrt6yM"
 
 bot = telebot.TeleBot(TOKEN)
 user_queries = defaultdict(int)
 
-# ====================== DATABASE ======================
+# Database
 def init_db():
     conn = sqlite3.connect('moneybot.db')
     c = conn.cursor()
@@ -38,17 +37,16 @@ def get_user(user_id):
     conn.close()
     return user
 
-# ====================== AI ======================
+# AI
 def ask_gemini(prompt):
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         data = {"contents": [{"parts": [{"text": prompt}]}]}
-        resp = requests.post(url, json=data, timeout=20).json()
+        resp = requests.post(url, json=data, timeout=15).json()
         return resp['candidates'][0]['content']['parts'][0]['text']
     except:
-        return "💡 Tell me your skills or interests and I'll give you practical money-making ideas in Saudi Arabia."
+        return "💡 Tell me your skills or interests and I'll give you good money ideas."
 
-# ====================== MENUS ======================
 def main_menu():
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(types.InlineKeyboardButton("💰 Make Money", callback_data="money"))
@@ -62,10 +60,10 @@ def shop_menu():
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(types.InlineKeyboardButton("📘 Affiliate Mastery - 150 Stars", callback_data="buy_affiliate"))
     markup.add(types.InlineKeyboardButton("🚀 Dropshipping Kit - 250 Stars", callback_data="buy_dropship"))
-    markup.add(types.InlineKeyboardButton("📊 Crypto Signals - 300 Stars", callback_data="buy_signals"))
+    markup.add(types.InlineKeyboardButton("📊 Crypto Signals Pack - 300 Stars", callback_data="buy_signals"))
+    markup.add(types.InlineKeyboardButton("📋 Notion Money System - 200 Stars", callback_data="buy_notion"))
     return markup
 
-# ====================== START ======================
 @bot.message_handler(commands=['start'])
 def start(message):
     get_user(message.from_user.id)
@@ -73,7 +71,6 @@ def start(message):
                      "👋 Welcome to **MoneyMachine Bot** 🔥\n\n🇸🇦 Make Money in Saudi Arabia",
                      reply_markup=main_menu())
 
-# ====================== CALLBACKS ======================
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
     bot.answer_callback_query(call.id)
@@ -82,15 +79,15 @@ def callback(call):
     if call.data == "money":
         bot.send_message(uid, """💰 **Make Money Options**
 
-1. Affiliate Marketing (Recommended for beginners)
-2. Digital Products (Highest profit)
+1. Affiliate Marketing (Best for beginners)
+2. Digital Products 
 3. Dropshipping
-4. Telegram Bots & Services
+4. Telegram Services
 
-Reply with a number or tell me what you are good at!""")
+Reply with a number or tell me your skills!""")
 
     elif call.data == "shop":
-        bot.send_message(uid, "🛒 **Digital Shop**", reply_markup=shop_menu())
+        bot.send_message(uid, "🛒 **Digital Shop** - Choose a product:", reply_markup=shop_menu())
 
     elif call.data == "ai":
         bot.send_message(uid, "🧠 Ask me anything about making money!")
@@ -104,9 +101,8 @@ Reply with a number or tell me what you are good at!""")
         bot.send_message(uid, f"🔗 **Your Referral Link**\n\n`{link}`", parse_mode='Markdown')
 
     elif call.data.startswith("buy_"):
-        bot.send_message(uid, "✅ Payment system is active!")
+        bot.send_message(uid, "✅ Payment system is active! Complete payment to get your product.")
 
-# ====================== PAYMENTS ======================
 @bot.pre_checkout_query_handler(func=lambda q: True)
 def checkout(q):
     bot.answer_pre_checkout_query(q.id, ok=True)
@@ -115,7 +111,6 @@ def checkout(q):
 def successful_payment(message):
     bot.send_message(message.chat.id, "🎉 **Premium Activated!**")
 
-# ====================== MAIN CHAT ======================
 @bot.message_handler(func=lambda message: True)
 def chat(message):
     uid = message.from_user.id
@@ -125,5 +120,5 @@ def chat(message):
     else:
         bot.reply_to(message, "💎 Free limit reached. Upgrade to Premium!")
 
-print("🚀 MoneyMachine Bot v7 - Clean Version Running!")
+print("🚀 MoneyMachine Bot v7.1 Running!")
 bot.infinity_polling()
