@@ -5,7 +5,6 @@ from telebot import types
 import sqlite3
 from datetime import datetime, timedelta
 from collections import defaultdict
-import random
 
 # ====================== CONFIG ======================
 TOKEN = os.getenv("TOKEN") or "8962392711:AAGoYjSYq4iuMupJaruE13YnHMrsJ3lVh-E"
@@ -41,8 +40,8 @@ def get_user(user_id):
     conn.close()
     return user
 
-def set_premium(user_id, days=30):
-    until = (datetime.now() + timedelta(days=days)).isoformat()
+def set_premium(user_id):
+    until = (datetime.now() + timedelta(days=30)).isoformat()
     conn = sqlite3.connect('moneybot.db')
     c = conn.cursor()
     c.execute("UPDATE users SET is_premium=1, premium_until=? WHERE user_id=?", (until, user_id))
@@ -52,13 +51,13 @@ def set_premium(user_id, days=30):
 # ====================== AI ======================
 def ask_gemini(prompt):
     try:
-        full_prompt = f"You are a practical money-making expert in Saudi Arabia. Give realistic step-by-step advice.\nUser: {prompt}"
+        full_prompt = f"You are a money-making expert in Saudi Arabia. Give practical advice.\nUser: {prompt}"
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         data = {"contents": [{"parts": [{"text": full_prompt}]}]}
         resp = requests.post(url, json=data, timeout=15).json()
         return resp['candidates'][0]['content']['parts'][0]['text']
     except:
-        return "💡 Tell me your skills or interests and I'll give you good money-making ideas for Saudi Arabia."
+        return "💡 Tell me your skills or interests and I will suggest good ways to earn money in Saudi Arabia."
 
 # ====================== MENUS ======================
 def main_menu():
@@ -85,14 +84,6 @@ def start(message):
                      "👋 Welcome to **MoneyMachine Bot** 🔥\n\n🇸🇦 Make Money in Saudi Arabia",
                      reply_markup=main_menu())
 
-@bot.message_handler(commands=['myplan'])
-def myplan(message):
-    user = get_user(message.from_user.id)
-    if user[1] == 1:
-        bot.reply_to(message, "✅ **Premium Active**")
-    else:
-        bot.reply_to(message, "🆓 **Free Plan** (5 queries/day)")
-
 # ====================== CALLBACKS (FIXED) ======================
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
@@ -100,19 +91,21 @@ def callback(call):
     uid = call.from_user.id
     user = get_user(uid)
 
+    print(f"Callback received: {call.data}")  # For debugging
+
     if call.data == "money":
-        text = """💰 **Make Money Options in Saudi Arabia**
+        text = """💰 **Make Money Options**
 
-1. **Affiliate Marketing** - Promote products and earn commission
-2. **Digital Products** - Sell eBooks, templates, courses
-3. **Dropshipping** - Sell products without stock
-4. **Telegram Services** - Create bots, channels, mini apps
+1. Affiliate Marketing (Best for beginners)
+2. Selling Digital Products
+3. Dropshipping
+4. Telegram Bot / Mini App Services
 
-Reply with a number (1-4) or tell me your skills!"""
+Reply with a number (1-4) or tell me what you are good at!"""
         bot.send_message(uid, text)
 
     elif call.data == "ai":
-        bot.send_message(uid, "🧠 Ask me anything about making money!\nExample: Best side hustle in Riyadh")
+        bot.send_message(uid, "🧠 Ask me anything about making money!")
 
     elif call.data == "shop":
         bot.send_message(uid, "🛒 **Digital Shop**", reply_markup=get_shop_menu())
@@ -121,15 +114,15 @@ Reply with a number (1-4) or tell me your skills!"""
         if user[1] == 1:
             bot.send_message(uid, "✅ You already have Premium!")
         else:
-            bot.send_invoice(uid, "Premium Monthly", "Unlimited AI + Exclusive Strategies", 
+            bot.send_invoice(uid, "Premium Monthly", "Unlimited AI + Exclusive Content", 
                            "premium_monthly", "", "XTR", [types.LabeledPrice("Premium 30 Days", 500)])
 
     elif call.data == "refer":
         link = f"https://t.me/kkmachinebot?start=ref{uid}"
-        bot.send_message(uid, f"🔗 **Your Referral Link**\n\n`{link}`\n\nEvery 3 referrals = 1 Free Month!", parse_mode='Markdown')
+        bot.send_message(uid, f"🔗 **Your Referral Link**\n\n`{link}`", parse_mode='Markdown')
 
     elif call.data.startswith("buy_"):
-        bot.send_message(uid, "✅ Payment system is ready!")
+        bot.send_message(uid, "✅ Payment feature active!")
 
 # ====================== PAYMENTS ======================
 @bot.pre_checkout_query_handler(func=lambda q: True)
@@ -140,22 +133,22 @@ def checkout(q):
 def successful_payment(message):
     if "premium" in message.successful_payment.invoice_payload:
         set_premium(message.from_user.id)
-        bot.send_message(message.chat.id, "🎉 **Premium Activated!** Unlimited AI unlocked!")
+        bot.send_message(message.chat.id, "🎉 **Premium Activated!**")
 
-# ====================== MAIN CHAT ======================
+# ====================== CHAT ======================
 @bot.message_handler(func=lambda message: True)
 def chat(message):
     uid = message.from_user.id
     user = get_user(uid)
 
-    if user[1] == 1:  # Premium
+    if user[1] == 1:
         bot.reply_to(message, ask_gemini(message.text))
     else:
         if user_queries[uid] < 5:
             user_queries[uid] += 1
             bot.reply_to(message, ask_gemini(message.text))
         else:
-            bot.reply_to(message, "💎 Free limit reached (5/day).\nUpgrade to Premium for unlimited access!")
+            bot.reply_to(message, "💎 Free limit reached. Upgrade to Premium!")
 
-print("🚀 MoneyMachine Bot Fixed & Running!")
+print("🚀 MoneyMachine Bot v6.5 - Fixed!")
 bot.infinity_polling()
